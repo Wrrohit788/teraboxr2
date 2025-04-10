@@ -1,0 +1,16 @@
+telethon
+cryptg
+pyaes
+aiohttp
+aiodns
+aiohttp[speedups]
+pillow
+hachoir
+requests
+redis
+selenium
+fastapi
+motor
+shortzy
+aria2
+httpx
