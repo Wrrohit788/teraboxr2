@@ -4,17 +4,15 @@ import logging
 async def get_data(url: str):
     async with aiohttp.ClientSession() as session:
         try:
-            async with session.get(f"https://teraboxvideodownloader.nepcoderdevs.workers.dev/?url={url}") as response:
+            async with session.get(f"https://alphaapis.org/terabox/v3/dl?url={url}") as response:
                 response.raise_for_status()
                 r = await response.json()
 
-            if r.get("response"):
-                file_info = r["response"][0]
-                resolutions = file_info["resolutions"]
-                fast_download_link = resolutions["Fast Download"]
-                HD_link = resolutions["HD Video"]
-                thumbnail_url = file_info["thumbnail"]
-                video_title = file_info["title"]
+            if r.get("url"):
+                fast_download_link = r["url"]
+                HD_link = r["url"]  # Assuming same link, modify if Alpha API provides multiple qualities
+                thumbnail_url = r.get("thumbnail")
+                video_title = r.get("file_name", "Unknown")
 
                 data = {
                     "file_name": video_title,
@@ -22,10 +20,10 @@ async def get_data(url: str):
                     "direct_link": fast_download_link,
                     "link": HD_link,
                     "thumb": thumbnail_url,
-                    "size": None,  # Assuming size is not provided, you can modify this if size is included in the response
-                    "sizebytes": None,  # Assuming size in bytes is not provided
+                    "size": r.get("size"),        # Will be None if not provided
+                    "sizebytes": r.get("bytes"),  # Will be None if not provided
                 }
-                return data 
+                return data
             else:
                 logging.error("No response data found")
                 return False
@@ -33,4 +31,3 @@ async def get_data(url: str):
         except Exception as e:
             logging.error(f"Failed to get data: {e}")
             return False
-
