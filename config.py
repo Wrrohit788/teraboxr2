@@ -1,0 +1,16 @@
+API_ID =   "" 
+API_HASH = "" 
+
+BOT_TOKEN = ""
+MONGO_DB_URL=""
+DB_NAME="Terabox2"
+
+HOST = "redis-12142.c330.asia-south1-1.gce.redns.redis-cloud.com"  
+PORT = 12142  
+PASSWORD = "t1Idcr3fRFDgcx7UFUOjz2GRYl2DazI8"
+
+PRIVATE_CHAT_ID = -1002421174923  
+
+OWNER_ID = 6053231890
+
+USER_CHANNEL = -1002161533050
