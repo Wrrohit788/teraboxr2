@@ -414,7 +414,7 @@ async def handle_message(event, channel1=CHANNEL_UPDATE, channel2=CHANNEL_SUPPOR
 **Uploaded by**: {sender_id}
 
 
-**Join @RagnarServer**
+**Join @AlphaBotz**
 """,
             progress_callback=progress_bar,
             thumb=thumbnail if thumbnail else None,
