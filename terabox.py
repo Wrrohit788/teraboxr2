@@ -1,7 +1,12 @@
 import aiohttp
 import logging
+from tools import parse_size_to_bytes
+
+# Configure logging
+logging.basicConfig(level=logging.ERROR)
 
 async def get_data(url: str):
+    """Fetch file data from the Terabox API."""
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(f"https://wdzone-terabox-api.vercel.app/api?url={url}") as response:
@@ -14,7 +19,7 @@ async def get_data(url: str):
                 fast_download_link = info.get("Direct Download Link")
                 video_title = info.get("Title", "Unknown")
                 size = info.get("Size")
-                thumbnail_url = info.get("Thumbnails", {}).get("360x270")  # Choose a specific thumbnail size
+                thumbnail_url = info.get("Thumbnails", {}).get("360x270")  # Choose 360x270 thumbnail
 
                 data = {
                     "file_name": video_title,
@@ -23,7 +28,7 @@ async def get_data(url: str):
                     "link": fast_download_link,  # Assuming same link for HD
                     "thumb": thumbnail_url,
                     "size": size,
-                    "sizebytes": None,  # API does not provide bytes directly; could parse "Size" if needed
+                    "sizebytes": parse_size_to_bytes(size),
                 }
                 return data
             else:
