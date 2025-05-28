@@ -1,8 +1,8 @@
 from motor.motor_asyncio import AsyncIOMotorClient as MongoClient
-from config import MONGO_DB_URL as MONGO_DB_URI 
+from config import MONGO_DB_URL as MONGO_DB_URI, DB_NAME
 
 mongo = MongoClient(MONGO_DB_URI)
-db = mongo.GEEK
+db = mongo[DB_NAME]
 
 async def update_token(user_id, token, time):
     await db.tokens.update_one({"user_id": user_id}, {"$set": {"info": {"token": token, "time": time}}}, upsert=True)
