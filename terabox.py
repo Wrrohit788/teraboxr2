@@ -4,7 +4,7 @@ import logging
 async def get_data(url: str):
     async with aiohttp.ClientSession() as session:
         try:
-            async with session.get(f"https://alphaapis.org/terabox/v3/dl?url={url}") as response:
+            async with session.get(f"https://wdzone-terabox-api.vercel.app/api?url={url}") as response:
                 response.raise_for_status()
                 r = await response.json()
 
