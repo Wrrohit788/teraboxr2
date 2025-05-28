@@ -24,4 +24,4 @@ RUN pip install python-dotenv
 ENV PYTHONUNBUFFERED=1
 
 # Run the bot
-CMD ["python", "main.py"]
+CMD ["python3", "main.py"]
