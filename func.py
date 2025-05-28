@@ -1,14 +1,6 @@
 from config import *
 import telethon
-import redis
 from telethon import TelegramClient, events
-
-db = redis.Redis(
-    host=HOST,
-    port=PORT,
-    password=PASSWORD,
-    decode_responses=True,
-)
 
 bot = TelegramClient("tele", API_ID, API_HASH)
 
