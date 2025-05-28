@@ -1,17 +1,15 @@
 import asyncio
 import os
 import time
-from datetime import timedelta 
+from datetime import timedelta
 import random
 from uuid import uuid4
 from telethon import Button
 import telethon
-import redis
 from telethon import TelegramClient, events
 from telethon.tl import functions
 from telethon.types import Message, UpdateNewMessage
 from telethon.tl.functions.messages import ForwardMessagesRequest
-import random
 from cansend import CanSend
 from config import *
 from terabox import get_data
@@ -29,32 +27,31 @@ from download import download_file
 import aiohttp
 import io
 from string import ascii_uppercase, digits
-from motor.motor_asyncio import AsyncIOMotorClient 
+from motor.motor_asyncio import AsyncIOMotorClient
 from telethon.errors import UserBlockedError, UserDeactivatedError
 from block import is_blocked
 from func import *
 
 MAX_RETRIES = 3
 
-dev_users = [5960968099, 7758708579] 
+dev_users = [5960968099, 7758708579]
 
-start_time = time.time() 
+start_time = time.time()
 
 CHANNEL_SUPPORT = "AlphaBotzchat"
 CHANNEL_UPDATE = "AlphaBotz"
 CHANNEL_SUPPORT_ID = -1002198026757
-CHANNEL_UPDATE_ID = -1002121014023   
-
-
-
+CHANNEL_UPDATE_ID = -1002121014023
 
 mongo_client = AsyncIOMotorClient(MONGO_DB_URL)
 bc = mongo_client[DB_NAME]
 
 user_tokens_collection = bc["user_tokens"]
-
-
-
+settings_collection = bc["settings"]
+premium_users_collection = bc["premium_users"]
+file_cache_collection = bc["file_cache"]
+gift_codes_collection = bc["gift_codes"]
+counters_collection = bc["counters"]
 
 @bot.on(events.NewMessage(pattern="/ads (on|off)", incoming=True))
 async def toggle_ads_verification(event):
@@ -64,21 +61,30 @@ async def toggle_ads_verification(event):
     action = event.pattern_match.group(1)
 
     if action == "on":
-        db.set('ads_verification', 'on')
+        await settings_collection.update_one(
+            {"_id": "ads_verification"},
+            {"$set": {"state": "on"}},
+            upsert=True
+        )
         await event.reply("Ads verification enabled.")
     elif action == "off":
-        db.set('ads_verification', 'off')
+        await settings_collection.update_one(
+            {"_id": "ads_verification"},
+            {"$set": {"state": "off"}},
+            upsert=True
+        )
         await event.reply("Ads verification disabled.")
     else:
         await event.reply("Invalid command usage. Please use `/ads on` or `/ads off`.")
 
 async def ads_verification_required(user_id):
-    ads_state = db.get('ads_verification')
-    if ads_state == 'off':
+    ads_doc = await settings_collection.find_one({"_id": "ads_verification"})
+    ads_state = ads_doc["state"] if ads_doc else "off"
+    if ads_state == "off":
         return False
     else:
-        pr_users = db.smembers('pr_users')
-        if str(user_id) in pr_users:
+        pr_user = await premium_users_collection.find_one({"user_id": str(user_id)})
+        if pr_user:
             return False
         else:
             token = await get_token(user_id)
@@ -86,8 +92,6 @@ async def ads_verification_required(user_id):
                 return True
             else:
                 return False
-
-
 
 @bot.on(events.NewMessage(pattern="/start", incoming=True))
 async def start_command(event):
@@ -148,7 +152,7 @@ async def start_command(event):
         img_url = "https://graph.org/file/41421ca12a57a331f1756.jpg"
         caption = (
             "𝐇𝐞𝐥𝐥𝐨! 𝐈 𝐚𝐦 𝐓𝐞𝐫𝐚𝐛𝐨𝐱 𝐕𝐢𝐝𝐞𝐨 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫 𝐁𝐨𝐭.\n\n"
-            "𝐒𝐞𝐧𝐝 𝐦𝐞 𝐭𝐞𝐫𝐚𝐛𝐨𝐱 𝐯𝐢𝐝𝐞𝐨 𝐥𝐢𝐧𝐤 & 𝐈 𝐰𝐢𝐥𝐥 𝐬𝐞𝐧𝐝 𝐕𝐢𝐝𝐞𝐨.\n\n"
+            "𝐒𝐞𝐧𝐝 𝐦𝐞 𝐭𝐞𝐫𝐚𝐛𝐨𝐱 𝐯𝐢𝐤 𝐥𝐢𝐧𝐤 & 𝐈 𝐰𝐢𝐥𝐥 𝐬𝐞𝐧𝐝 𝐕𝐢𝐝𝐞𝐨.\n\n"
         )
         await bot.send_file(event.chat_id, file=img_url, caption=caption, buttons=reply_markup)
 
@@ -166,22 +170,22 @@ async def start(m: UpdateNewMessage):
             await set_verification_token(m.sender_id, '')
             await m.reply('Success.')
 
-    fileid = db.get(str(text))
+    file_doc = await file_cache_collection.find_one({"_id": str(text)})
+    fileid = file_doc["file_id"] if file_doc else None
 
-    await bot(
-        ForwardMessagesRequest(
-            from_peer=PRIVATE_CHAT_ID,
-            id=[int(fileid)],
-            to_peer=m.chat.id,
-            drop_author=True,
-            noforwards=False,
-            background=True,
-            drop_media_captions=False,
-            with_my_score=True,
+    if fileid:
+        await bot(
+            ForwardMessagesRequest(
+                from_peer=PRIVATE_CHAT_ID,
+                id=[int(fileid)],
+                to_peer=m.chat.id,
+                drop_author=True,
+                noforwards=False,
+                background=True,
+                drop_media_captions=False,
+                with_my_score=True,
+            )
         )
-    )
-
-
 
 all = string.ascii_letters + string.digits + '_'
 def generate_token(length: int) -> str:
@@ -196,13 +200,12 @@ async def gen(e):
         return
     user_id = e.sender_id
     if is_blocked(user_id):
-        return 
+        return
 
-    pr_users = db.smembers('pr_users')
-
-    if str(user_id) in pr_users:
+    pr_user = await premium_users_collection.find_one({"user_id": str(user_id)})
+    if pr_user:
         return await e.reply("You are a premium user. No need to generate a token.")
-    
+
     prev = await get_token(user_id)
     if prev[1]:
         if int(time.time() - prev[1]) < 86400:
@@ -214,12 +217,11 @@ async def gen(e):
     boo, x = post(f'https://t.me/{un}?start=verify_{token}')
     if not boo:
         return await e.reply(x)
-    
+
     GEEK = Button.url("Link Here", url=x)
     INFO = Button.url("Tutorial ❓", url="https://t.me/Bypass_Shortlink/2")
     txt = f'Hey!\n\nYour Ads token is expired, refresh your token and try again.\n\nToken Timeout: 24 hours\n\nWhat is token?\n\nThis is an ads token.\n\nIf you pass 1 ad, you can use the bot for 24 hours after passing the ad.'
     await e.reply(txt, buttons=[[GEEK, INFO]])
-
 
 @bot.on(
     events.NewMessage(
@@ -230,7 +232,6 @@ async def gen(e):
         and message.is_private,
     )
 )
-
 async def handle_message(event, channel1=CHANNEL_UPDATE, channel2=CHANNEL_SUPPORT, channel1_id=CHANNEL_UPDATE_ID, channel2_id=CHANNEL_SUPPORT_ID):
     m = event.message
     sender_id = m.sender_id
@@ -238,9 +239,8 @@ async def handle_message(event, channel1=CHANNEL_UPDATE, channel2=CHANNEL_SUPPOR
         return
 
     if await ads_verification_required(sender_id):
-        pr_users = db.smembers('pr_users')
-
-        if str(sender_id) not in pr_users:
+        pr_user = await premium_users_collection.find_one({"user_id": str(sender_id)})
+        if not pr_user:
             token = await get_token(sender_id)
             if not token[0]:
                 return await m.reply('You do not have a token. Generate it by using /gen.')
@@ -265,7 +265,9 @@ async def handle_message(event, channel1=CHANNEL_UPDATE, channel2=CHANNEL_SUPPOR
     if not shorturl:
         return await hm.edit("Seems like your link is invalid.")
 
-    fileid = db.get(shorturl)
+    file_doc = await file_cache_collection.find_one({"_id": shorturl})
+    fileid = file_doc["file_id"] if file_doc else None
+
     if fileid:
         try:
             await hm.delete()
@@ -286,7 +288,11 @@ async def handle_message(event, channel1=CHANNEL_UPDATE, channel2=CHANNEL_SUPPOR
         )
         return
 
-    db.incr(f"check_{sender_id}")
+    await counters_collection.update_one(
+        {"_id": f"check_{sender_id}"},
+        {"$inc": {"count": 1}},
+        upsert=True
+    )
 
     data = await get_data(url)
     if not data:
@@ -413,7 +419,6 @@ async def handle_message(event, channel1=CHANNEL_UPDATE, channel2=CHANNEL_SUPPOR
 **Uploaded in**: `{convert_seconds(time.time() - start_upload_time)}`
 **Uploaded by**: {sender_id}
 
-
 **Join @AlphaBotz**
 """,
             progress_callback=progress_bar,
@@ -441,9 +446,17 @@ async def handle_message(event, channel1=CHANNEL_UPDATE, channel2=CHANNEL_SUPPOR
         print(e)
 
     if shorturl:
-        db.set(shorturl, file.id)
+        await file_cache_collection.update_one(
+            {"_id": shorturl},
+            {"$set": {"file_id": file.id}},
+            upsert=True
+        )
     if file:
-        db.set(uuid, file.id)
+        await file_cache_collection.update_one(
+            {"_id": uuid},
+            {"$set": {"file_id": file.id}},
+            upsert=True
+        )
 
         await bot(
             ForwardMessagesRequest(
@@ -458,8 +471,6 @@ async def handle_message(event, channel1=CHANNEL_UPDATE, channel2=CHANNEL_SUPPOR
                 with_my_score=True,
             )
         )
-
-
 
 @bot.on(events.NewMessage(pattern='/stats', incoming=True))
 async def stats_command(event):
@@ -477,7 +488,7 @@ def uptime():
 async def broadcast_command(event):
     if event.sender_id not in dev_users:
         return await event.reply("You are not authorized to use this command.")
-    
+
     await event.reply("Broadcast starting...")
 
     users_cursor = user_tokens_collection.find({}, {"user_id": 1})
@@ -520,10 +531,11 @@ async def add_pr_user(event):
         return await event.reply("You are not authorized to use this command.")
 
     user_id = int(event.pattern_match.group(1))
-    if db.sismember('pr_users', user_id):
+    pr_user = await premium_users_collection.find_one({"user_id": str(user_id)})
+    if pr_user:
         return await event.reply("User is already a premium user.")
 
-    db.sadd('pr_users', user_id)
+    await premium_users_collection.insert_one({"user_id": str(user_id)})
     await event.reply(f"User {user_id} has been added to premium users.")
 
 @bot.on(events.NewMessage(pattern='/rpr (\d+)', incoming=True))
@@ -532,10 +544,11 @@ async def remove_pr_user(event):
         return await event.reply("You are not authorized to use this command.")
 
     user_id = int(event.pattern_match.group(1))
-    if not db.sismember('pr_users', user_id):
+    pr_user = await premium_users_collection.find_one({"user_id": str(user_id)})
+    if not pr_user:
         return await event.reply("User is not a premium user.")
 
-    db.srem('pr_users', user_id)
+    await premium_users_collection.delete_one({"user_id": str(user_id)})
     await event.reply(f"User {user_id} has been removed from premium users.")
 
 import string
@@ -553,10 +566,14 @@ async def generate_gift_code(event):
         return await event.reply("You are not authorized to use this command.")
 
     hours = int(event.pattern_match.group(1))
-    code = generate_code(8)  
-
+    code = generate_code(8)
     expiry_time = int(time.time()) + (hours * 3600)
-    db.setex(code, expiry_time, 1)
+
+    await gift_codes_collection.update_one(
+        {"_id": code},
+        {"$set": {"expiry_time": expiry_time, "redeemed": False}},
+        upsert=True
+    )
 
     await event.reply(f"Gift code `{code}` generated successfully for {hours} hours.")
 
@@ -564,16 +581,19 @@ async def generate_gift_code(event):
 async def redeem_gift_code(event):
     code = event.pattern_match.group(1)
 
-    if not db.exists(code):
+    code_doc = await gift_codes_collection.find_one({"_id": code})
+    if not code_doc or code_doc["expiry_time"] < int(time.time()):
         return await event.reply("Invalid or expired code.")
 
-    if db.exists(f"redeemed:{code}"):
+    if code_doc["redeemed"]:
         return await event.reply("This code has already been redeemed.")
 
-    expiry_seconds = db.ttl(code)
-    expiry_hours = expiry_seconds / 3600
-    db.sadd('pr_users', event.sender_id)
-    db.setex(f"redeemed:{code}", expiry_seconds, 1)
+    expiry_seconds = code_doc["expiry_time"] - int(time.time())
+    await premium_users_collection.insert_one({"user_id": str(event.sender_id)})
+    await gift_codes_collection.update_one(
+        {"_id": code},
+        {"$set": {"redeemed": True}}
+    )
 
     await event.reply(f"Code `{code}` redeemed successfully. You are now a premium user.")
 
@@ -582,14 +602,14 @@ async def show_pr_users(event):
     if event.sender_id not in dev_users:
         return await event.reply("You are not authorized to use this command.")
 
-    pr_users = db.smembers('pr_users')
+    pr_users_cursor = premium_users_collection.find({}, {"user_id": 1})
+    pr_users = [user["user_id"] async for user in pr_users_cursor]
 
     if not pr_users:
         return await event.reply("No users are currently in the premium users list.")
 
     users_list = "\n".join(str(user_id) for user_id in pr_users)
     await event.reply(f"Premium users:\n{users_list}")
-
 
 bot.start(bot_token=BOT_TOKEN)
 print('bot started ')
