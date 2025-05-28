@@ -1,5 +1,5 @@
-API_ID = ""
-API_HASH = ""
+API_ID = "27696582"
+API_HASH = "45fccefb72a57ff1b858339774b6d005"
 BOT_TOKEN = ""
 MONGO_DB_URL = ""
 DB_NAME = "billabox2"
