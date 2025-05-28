@@ -39,6 +39,19 @@ def extract_surl_from_url(url: str) -> str or bool:
     else:
         return False
 
+def parse_size_to_bytes(size_str: str) -> int or None:
+    """Convert size string (e.g., '130.28 MB') to bytes."""
+    if not size_str:
+        return None
+    try:
+        size, unit = size_str.split()
+        size = float(size)
+        units = {"KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
+        return int(size * units.get(unit.upper(), 1))
+    except Exception as e:
+        print(f"Failed to parse size '{size_str}': {e}")
+        return None
+
 def get_formatted_size(size_bytes: int) -> str:
     if size_bytes >= 1024 * 1024:
         size = size_bytes / (1024 * 1024)
