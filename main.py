@@ -419,7 +419,7 @@ async def handle_message(event, channel1=CHANNEL_UPDATE, channel2=CHANNEL_SUPPOR
 **Uploaded in**: `{convert_seconds(time.time() - start_upload_time)}`
 **Uploaded by**: {sender_id}
 
-**Join @AlphaBotz**
+**Join @BillaSpace**
 """,
             progress_callback=progress_bar,
             thumb=thumbnail if thumbnail else None,
