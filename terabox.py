@@ -16,13 +16,13 @@ async def get_data(url: str):
                 # Log the full response for debugging
                 logging.debug(f"API Response: {r}")
 
-                # Check if "Extracted Info" exists and has at least one item
-                if r.get("Extracted Info") and len(r["Extracted Info"]) > 0:
-                    info = r["Extracted Info"][0]
-                    fast_download_link = info.get("Direct Download Link")
-                    video_title = info.get("Title", "Unknown")
-                    size = info.get("Size")
-                    thumbnail_url = info.get("Thumbnails", {}).get("360x270")  # Choose 360x270 thumbnail
+                # Check if "📜 Extracted Info" exists and has at least one item
+                if r.get("📜 Extracted Info") and len(r["📜 Extracted Info"]) > 0:
+                    info = r["📜 Extracted Info"][0]
+                    fast_download_link = info.get("🔽 Direct Download Link")
+                    video_title = info.get("📂 Title", "Unknown")
+                    size = info.get("📏 Size")
+                    thumbnail_url = info.get("🖼️ Thumbnails", {}).get("360x270")  # Choose 360x270 thumbnail
 
                     data = {
                         "file_name": video_title,
@@ -35,7 +35,7 @@ async def get_data(url: str):
                     }
                     return data
                 else:
-                    logging.error(f"No 'Extracted Info' found in response: {r}")
+                    logging.error(f"No '📜 Extracted Info' found in response: {r}")
                     return False
 
         except aiohttp.ClientResponseError as e:
